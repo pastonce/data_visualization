@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据可视化第一次作业</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            background: #f5e6ce;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="chart"></div>
+    <script src="http://d3js.org/d3.v7.min.js" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        function colorScale(variety) {
+            const colorMap = {
+                'Setosa': '#00AEA6',
+                'Versicolor': '#DB0047',
+                'Virginica': '#F28F00'
+            };
+            return colorMap[variety] || '#000000'; // 默认颜色为黑色
+        }
+
+        async function drawChart() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const margin = {
+                top: 60,
+                left: 60
+            };
+            const sub_width = (width - 4 * margin.left) / 3;
+            const sub_height = (height - 4 * margin.top) / 2;
+            // const colors = ['#00AEA6', '#DB0047', '#F28F00', '#EB5C36', '#242959', '#2965A7'];
+            let dataset = await d3.csv("iris.csv", d3.autoType);
+            const features = ["petal.length", "petal.width", "sepal.length", "sepal.width"];
+            const categories = ["Setosa", "Versicolor", "Virginica"];
+
+            const svg = d3.select('#chart')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .style('background-color', '#FEF5E5');
+            const tooltip = d3.select('#chart')
+                .append('div')
+                .attr('class', 'tooltip')
+                .style('position', 'absolute')
+                .style('visibility', 'hidden') // 初始时隐藏
+                .style('background-color', 'rgba(185,199,141,0.5)')
+                .style('color', 'rgb(46, 47, 35)')
+                .style('border-radius', '8px')
+                .style('padding', '10px 14px')
+                .style('font-size', '13px')
+                .style('line-height', '1.5')
+                .style("box-shadow", "0 4px 12px rgba(0,0,0,0.3)")
+                .style("pointer-events", "none")  // 防止挡鼠标
+                .style("transition", "all 0.2s ease")
+                .style("backdrop-filter", "blur(4px)");
+
+        // 子图1：二维散点图
+            const subfig1 = svg.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top})`);
+            // 绘制标题
+            subfig1.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', -margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('二维散点图')
+                .style('font-size', '32px')
+                .style('font-weight', 600);
+            // 绘制坐标轴
+            const xScale1 = d3.scaleLinear()
+                .domain([d3.min(dataset, d => d["petal.length"]) - 0.5, d3.max(dataset, d => d["petal.length"]) + 0.5])
+                .range([0, sub_width]);
+            const yScale1 = d3.scaleLinear()
+                .domain([d3.min(dataset, d => d["petal.width"]) - 0.5, d3.max(dataset, d => d["petal.width"]) + 0.5])
+                .range([sub_height, 0]);
+            const xAxis1 = d3.axisBottom(xScale1);
+            const yAxis1 = d3.axisLeft(yScale1);
+            subfig1.append('g')
+                .attr('transform', `translate(0, ${sub_height})`)
+                .call(xAxis1);
+            subfig1.append('g')
+                .attr('transform', `translate(0, 0)`)
+                .call(yAxis1);
+            subfig1.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', sub_height + margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('petal.length')
+                .style('font-size', '16px');
+            subfig1.append('text')
+                .attr('x', -sub_height / 2)
+                .attr('y', -margin.left / 2)
+                .attr('transform', 'rotate(-90)')
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('petal.width')
+                .style('font-size', '16px');
+            // 绘制网格线
+            subfig1.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0, ${sub_height})`)
+                .call(d3.axisBottom(xScale1)
+                    .tickSize(-sub_height)
+                    .tickFormat(''))
+                .attr('stroke-opacity', 0.2);
+            subfig1.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(yScale1)
+                    .tickSize(-sub_width)
+                    .tickFormat(''))
+                .attr('stroke-opacity', 0.2);
+            // 绘制数据点
+            subfig1.append('g')
+                .selectAll('circle')
+                .data(dataset)
+                .join('circle')                             // 画圆点
+                .attr("cx", d => xScale1(d["petal.length"]))   // 圆心x坐标
+                .attr("cy", d => yScale1(d["petal.width"]))    // 圆心y坐标
+                .attr("fill", d => colorScale(d.variety))   // 圆点颜色
+                .attr("fill-opacity", 0.8)                  // 圆点透明度
+                .attr("r", 5)                               // 圆点半径
+                .attr("class", d => `dot ${d.variety}`) // 添加类别类名
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr("r", 7)
+                        .attr("fill-opacity", 1)
+                        .raise();
+                    tooltip.style('visibility', 'visible')
+                        .html(`
+                            <div style="color:${colorScale(d.variety)}; font-weight:bold;">
+                                ${d.variety}
+                            </div>
+                            <div><b>petal.length:</b> ${d["petal.length"]}</div>
+                            <div><b>petal.width:</b> ${d["petal.width"]}</div>
+                            <div><b>sepal.length:</b> ${d["sepal.length"]}</div>
+                            <div><b>sepal.width:</b> ${d["sepal.width"]}</div>
+                        `);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr("r", 5)
+                        .attr("fill-opacity", 0.8)
+                        .lower();
+                    tooltip.style('visibility', 'hidden');
+                })
+                .on('mousemove', function(event) {
+                    tooltip
+                        .style('top', (event.pageY + 15) + 'px')
+                        .style('left', (event.pageX + 15) + 'px');
+                });
+            // 绘制图例
+            const legend1 = subfig1.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top / 4})`);
+            categories.forEach((category, index) => {
+                const item = legend1.append('g')
+                    .attr('transform', `translate(0, ${index * 20})`)
+                    .on('mouseover', () => {
+                        subfig1.selectAll('.dot')
+                            .attr('fill-opacity', d => d.variety === category ? 1 : 0.2)
+                            .raise();
+                    })
+                    .on('mouseout', () => {
+                        subfig1.selectAll('.dot')
+                            .attr('fill-opacity', 0.8);
+                    });
+
+                item.append('circle')
+                    .attr('cx', 7.5)
+                    .attr('cy', 7.5)
+                    .attr('r', 7.5)
+                    .attr('fill', colorScale(category));
+
+                item.append('text')
+                    .attr('x', 20)
+                    .attr('y', 12)
+                    .text(category);
+            });
+
+        // 子图2：平行坐标图
+            const subfig2 = svg.append('g')
+                .attr('transform', `translate(${sub_width + 2 * margin.left}, ${margin.top})`);
+            // 绘制标题
+            subfig2.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', -margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('平行坐标图')
+                .style('font-size', '32px')
+                .style('font-weight', 600);
+            // 绘制坐标轴
+            const xScale2 = d3.scalePoint()
+                .domain(features)
+                .range([0, sub_width]);
+            const yScales2 = {};
+            features.forEach(feature => {
+                yScales2[feature] = d3.scaleLinear()
+                    .domain([d3.min(dataset, d => d[feature]) - 0.5, d3.max(dataset, d => d[feature]) + 0.5])
+                    .range([sub_height, 0]);
+            });
+            features.forEach(dim => {
+                subfig2.append("g")
+                    .attr("transform", `translate(${xScale2(dim)},0)`)
+                    .call(d3.axisLeft(yScales2[dim]));
+
+                subfig2.append("text")
+                    .attr("x", xScale2(dim))
+                    .attr("y", sub_height + margin.top / 2)
+                    .attr("text-anchor", "middle")
+                    .text(dim);
+            });
+
+            function path(d) {
+                return d3.line()(
+                    features.map(feature => [
+                        xScale2(feature),
+                        yScales2[feature](d[feature])
+                    ])
+                );
+            }
+            // 绘制数据线
+            subfig2.append('g')
+                .selectAll('path')
+                .data(dataset)
+                .join('path')
+                .attr('d', path)
+                .attr('fill', 'none')
+                .attr('fill-opacity', 0.8)
+                .attr('stroke', d => colorScale(d.variety))
+                .attr('stroke-width', 1.5)
+                .attr('stroke-opacity', 0.8)
+                .attr('class', d => `line ${d.variety}`)
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .attr('stroke-width', 3)
+                        .attr('stroke-opacity', 1)
+                        .raise();
+                    tooltip.style('visibility', 'visible')
+                        .html(`
+                            <div style="color:${colorScale(d.variety)}; font-weight:bold;">
+                                ${d.variety}
+                            </div>
+                            <div><b>petal.length:</b> ${d["petal.length"]}</div>
+                            <div><b>petal.width:</b> ${d["petal.width"]}</div>
+                            <div><b>sepal.length:</b> ${d["sepal.length"]}</div>
+                            <div><b>sepal.width:</b> ${d["sepal.width"]}</div>
+                        `);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .attr('stroke-width', 1.5)
+                        .attr('stroke-opacity', 0.8)
+                        .lower();
+                    tooltip.style('visibility', 'hidden');
+                })
+                .on('mousemove', function(event) {
+                    tooltip
+                        .style('top', (event.pageY + 15) + 'px')
+                        .style('left', (event.pageX + 15) + 'px');
+                });
+            // 绘制图例
+            const legend2 = subfig2.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top / 4})`);
+            categories.forEach((category, index) => {
+                const item = legend2.append('g')
+                    .attr('transform', `translate(${sub_width / 3 * index}, ${margin.top / 4})`)
+                    .on('mouseover', () => {
+                        subfig2.selectAll('.line')
+                            .attr('stroke-opacity', d => d.variety === category ? 1 : 0.2)
+                            .raise();
+                    })
+                    .on('mouseout', () => {
+                        subfig2.selectAll('.line')
+                            .attr('stroke-opacity', 0.8);
+                    });
+                item.append('line')
+                    .attr('x1', -20)
+                    .attr('y1', -12)
+                    .attr('x2', -7)
+                    .attr('y2', -12)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 3);
+                item.append('text')
+                    .attr('x', -5)
+                    .attr('y', -7.5)
+                    .text(category)
+            });
+        
+        // 子图3：雷达图
+            const subfig3 = svg.append('g')
+                .attr('transform', `translate(${2 * sub_width + 3 * margin.left}, ${margin.top})`);
+            // 绘制标题
+            subfig3.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', -margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('雷达图')
+                .style('font-size', '32px')
+                .style('font-weight', 600);
+            // 绘制等值线
+            const angleSlice = Math.PI * 2 / features.length;
+            const rScale = d3.scaleLinear()
+                .domain([0, 8])
+                .range([0, sub_height / 2]);
+            for (let r = 2; r <= 8; r += 2) {
+                subfig3.append('circle')
+                    .attr('cx', sub_width / 2)
+                    .attr('cy', sub_height / 2)
+                    .attr('r', rScale(r))
+                    .attr('fill', 'none')
+                    .attr('stroke', '#ccc')
+                    .attr('stroke-width', 1);
+                subfig3.append('text')
+                    .attr('x', sub_width / 2 + rScale(r) - 5)
+                    .attr('y', sub_height / 2)
+                    .attr('text-anchor', 'middle')
+                    .attr("dy", "-0.35em")
+                    .text(r)
+                    .style('font-size', '10px')
+                    .raise();
+            }
+            // 绘制轴线和标签
+            features.forEach((feature, i) => {
+                const angle = i * angleSlice - Math.PI / 2;
+                const x = sub_width / 2 + Math.cos(angle) * rScale(8);
+                const y = sub_height / 2 + Math.sin(angle) * rScale(8);
+                subfig3.append('line')
+                    .attr('x1', sub_width / 2)
+                    .attr('y1', sub_height / 2)
+                    .attr('x2', x)
+                    .attr('y2', y)
+                    .attr('stroke', '#ccc')
+                    .attr('stroke-width', 1);
+                subfig3.append('text')
+                    .attr('x', x + (x - sub_width / 2) * 0.2)
+                    .attr('y', y + (y - sub_height / 2) * 0.05)
+                    .attr('text-anchor', 'middle')
+                    .attr("dy", "0.35em")
+                    .text(feature)
+                    .style('font-size', '12px');
+            });
+            // 绘制数据多边形
+            const radarLine = d3.lineRadial()
+                .radius(d => rScale(d.value))
+                .angle((d, i) => i * angleSlice)
+                .curve(d3.curveLinearClosed);
+            
+            function transformData(d) {
+                return features.map(feature => ({ feature: feature, value: d[feature] }));
+            }
+            
+            subfig3.append('g')
+                .selectAll('.radarLineArea')
+                .data(dataset)
+                .join('path')
+                .attr('class', d => `radarLineArea ${d.variety}`)
+                .attr('d', d => radarLine(transformData(d)))
+                .attr('transform', `translate(${sub_width / 2}, ${sub_height / 2})` )
+                .attr('fill', d => colorScale(d.variety))
+                .attr('fill-opacity', 0)
+                .attr('stroke', d => colorScale(d.variety))
+                .attr('stroke-width', 1.5)
+                .attr('stroke-opacity', 0);  // 默认透明度为0
+            // 绘制数据最大最小值区域
+            const grouped = d3.group(dataset, d => d.variety);
+            const rangeData = Array.from(grouped, ([variety, data]) => {
+                return {
+                    variety: variety,
+                    min: features.map(f => d3.min(data, d => d[f])),
+                    max: features.map(f => d3.max(data, d => d[f])),
+                    mean: features.map(f => d3.mean(data, d => d[f]))
+                };
+            });
+            const area = d3.areaRadial()
+                .angle((d,i) => i * angleSlice)
+                .innerRadius(d => rScale(d.min))
+                .outerRadius(d => rScale(d.max))
+                .curve(d3.curveLinearClosed);
+            rangeData.forEach(d => {
+                const areaData = features.map((f, i) => ({
+                    feature: f,
+                    min: d.min[i],
+                    max: d.max[i],
+                    mean: d.mean[i]
+                }));
+                subfig3.append('path')
+                    .datum(areaData)
+                    .attr('d', area)
+                    .attr('class', `radarMaxMinArea ${d.variety}`)
+                    .attr('transform', `translate(${sub_width / 2}, ${sub_height / 2})` )
+                    .attr('fill', colorScale(d.variety))
+                    .attr('fill-opacity', 0.3)
+                    .attr('stroke', colorScale(d.variety))
+                    .attr('stroke-width', 1)
+                    .attr('stroke-opacity', 0.8)
+                    .on('mouseover', function(event) {
+                        tooltip.style('visibility', 'visible')
+                            .attr('transform', `translate(${event.pageX}px, ${event.pageY}px)`)
+                            .html(`
+                                <div style="color:${colorScale(d.variety)}; font-weight:bold;">
+                                    ${d.variety}
+                                </div>
+                                ${features.map((f, i) => `
+                                    <div><b>${f}:</b> min ${d.min[i].toFixed(2)}, mean ${d.mean[i].toFixed(2)}, max ${d.max[i].toFixed(2)}</div>
+                                `).join('')}
+                            `);
+                        if (subfig3.selectAll(`.radarLineArea.${d.variety}`).attr('stroke-opacity') == 1) {
+                            d3.select(this)
+                                .attr('stroke-opacity', 0.85)
+                                .attr('fill-opacity', 0.5)
+                                .raise();
+                        } else {
+                            d3.select(this)
+                                .attr('stroke-opacity', 1)
+                                .attr('fill-opacity', 0.7)
+                                .raise();
+                        }
+                    })
+                    .on('mouseout', function(event) {
+                        tooltip.style('visibility', 'hidden');
+                        if (subfig3.selectAll(`.radarLineArea.${d.variety}`).attr('stroke-opacity') == 1) {
+                            d3.select(this)
+                                .attr('stroke-opacity', 0)
+                                .attr('fill-opacity', 0);
+                        } else {
+                            d3.select(this)
+                                .attr('stroke-opacity', 0.8)
+                                .attr('fill-opacity', 0.3);
+                        }
+                    })
+                    .on('mousemove', function(event) {
+                        tooltip
+                            .style('top', (event.pageY + 15) + 'px')
+                            .style('left', (event.pageX - 140) + 'px');
+                    });
+                // 绘制最大最小值点
+                subfig3.append('g')
+                    .selectAll(`.rangePointMax-${d.variety}`)
+                    .data(areaData)
+                    .join('circle')
+                    .attr('class', `rangePointMax-${d.variety}`)
+                    .attr('cx', d => Math.cos(features.indexOf(d.feature) * angleSlice - Math.PI / 2) * rScale(d.max) + sub_width / 2)
+                    .attr('cy', d => Math.sin(features.indexOf(d.feature) * angleSlice - Math.PI / 2) * rScale(d.max) + sub_height / 2)
+                    .attr('r', 2.5)
+                    .attr('fill', colorScale(d.variety))
+                    .attr('fill-opacity', 0.8);
+                subfig3.append('g')
+                    .selectAll(`.rangePointMin-${d.variety}`)
+                    .data(areaData)
+                    .join('circle')
+                    .attr('class', `rangePointMin-${d.variety}`)
+                    .attr('cx', d => Math.cos(features.indexOf(d.feature) * angleSlice - Math.PI / 2) * rScale(d.min) + sub_width / 2)
+                    .attr('cy', d => Math.sin(features.indexOf(d.feature) * angleSlice - Math.PI / 2) * rScale(d.min) + sub_height / 2)
+                    .attr('r', 2.5)
+                    .attr('fill', colorScale(d.variety))
+                    .attr('fill-opacity', 0.8);
+            });
+            // 绘制图例
+            const legend3 = subfig3.append('g')
+                .attr('transform', `translate(${margin.left}, ${margin.top / 4})`);
+            categories.forEach((category, index) => {
+                const item = legend3.append('g')
+                    .attr('transform', `translate(0, ${margin.top / 4 + index * 30})`)
+                    .style('cursor', 'pointer')
+                    .on('click', () => {
+                        if (subfig3.selectAll('.radarLineArea').filter(d => d.variety === category).attr('stroke-opacity') == 1) {
+                            subfig3.selectAll('.radarLineArea')
+                                .filter(d => d.variety === category)
+                                .attr('stroke-opacity', 0);
+                            subfig3.selectAll(`.radarMaxMinArea.${category}`)
+                                .attr('fill-opacity', 0.3)
+                                .attr('stroke-opacity', 0.8);
+                            subfig3.selectAll(`.rangePointMax-${category}`)
+                                .attr('fill-opacity', 0.8);
+                            subfig3.selectAll(`.rangePointMin-${category}`)
+                                .attr('fill-opacity', 0.8);
+                        } else {
+                            subfig3.selectAll('.radarLineArea')
+                                .filter(d => d.variety === category)
+                                .attr('stroke-opacity', 1)
+                                .lower();
+                            subfig3.selectAll(`.radarMaxMinArea.${category}`)
+                                .attr('fill-opacity', 0)
+                                .attr('stroke-opacity', 0)
+                            subfig3.selectAll(`.rangePointMax-${category}`)
+                                .attr('fill-opacity', 0);
+                            subfig3.selectAll(`.rangePointMin-${category}`)
+                                .attr('fill-opacity', 0);
+                        }
+                    });
+                item.append('rect')
+                    .attr('x', -40)
+                    .attr('y', -10)
+                    .attr('width', 80)
+                    .attr('height', 20)
+                    .attr('fill', colorScale(category))
+                    .attr('fill-opacity', 0.3)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 1)
+                    .attr('stroke-opacity', 0.8);
+                item.append('text')
+                    .attr('x', 0)
+                    .attr('y', 5)
+                    .attr('text-anchor', 'middle')
+                    .text(category);
+            });
+        
+        // 子图4：箱线图
+            subfig4 = svg.append('g')
+                .attr('transform', `translate(${margin.left}, ${3 * margin.top + sub_height})`);
+            const boxData = features.map(f => {
+                return {
+                    feature: f,
+                    values: categories.map(cg => {
+                        return {
+                            variety: cg,
+                            data: dataset.filter(d => d.variety===cg).map(d => d[f])
+                        }
+                    })
+                }
+            });
+            // 绘制标题
+            subfig4.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', -margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('箱线图')
+                .style('font-size', '32px')
+                .style('font-weight', 600);
+            // 绘制坐标轴和标签
+            const xScale4 = d3.scaleBand()
+                .domain(features)
+                .range([0, sub_width])
+                .padding(0.2);
+            const yScale4 = d3.scaleLinear()
+                .domain([0, d3.max(dataset, d => d3.max(features, f => d[f])) + 0.5])
+                .range([sub_height, 0]);
+            const xxScale4 = d3.scaleBand() // 组内横轴
+                .domain(categories)
+                .range([0, xScale4.bandwidth()])
+                .padding(0.1);
+            subfig4.append('g')
+                .attr('transform', `translate(0, ${sub_height})`)
+                .call(d3.axisBottom(xScale4))
+                .attr('font-size', '12px');
+            subfig4.append('g')
+                .attr('transform', `translate(0, 0)`)
+                .call(d3.axisLeft(yScale4))
+                .attr('font-size', '12px');
+            subfig4.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', sub_height + margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('Feature');
+            subfig4.append('text')
+                .attr('x', -sub_height / 2)
+                .attr('y', -margin.left / 2)
+                .attr('transform', 'rotate(-90)')
+                .attr('text-anchor', 'middle')
+                .text('Value');
+            // 绘制网格线
+            subfig4.append('g')
+                .attr('class', 'grid')
+                .attr('transform', `translate(0, ${sub_height})`)
+                .call(d3.axisBottom(xScale4)
+                    .tickSize(-sub_height)
+                    .tickFormat(''))
+                .attr('stroke-opacity', 0.2);
+            subfig4.append('g')
+                .attr('class', 'grid')
+                .call(d3.axisLeft(yScale4)
+                    .tickSize(-sub_width)
+                    .tickFormat(''))
+                .attr('stroke-opacity', 0.2);
+            // 绘制箱线图
+            function boxPlotData(values) {
+                values.sort(d3.ascending);
+                const q1 = d3.quantile(values, 0.25);
+                const median = d3.quantile(values, 0.5);
+                const q3 = d3.quantile(values, 0.75);
+                const min = d3.min(values);
+                const max = d3.max(values);
+                return {min, q1, median, q3, max};
+            }
+            function boxMouseOver(event, v, d) {
+                const {min, q1, median, q3, max} = boxPlotData(v.data);
+                tooltip.style('visibility', 'visible')
+                    .html(`
+                        <div style="color:${colorScale(v.variety)}; font-weight:bold;">
+                            ${v.variety}
+                        </div>
+                        <div><b>Feature:</b> ${d.feature}</div>
+                        <div><b>Min:</b> ${min.toFixed(2)}</div>
+                        <div><b>Q1:</b> ${q1.toFixed(2)}</div>
+                        <div><b>Median:</b> ${median.toFixed(2)}</div>
+                        <div><b>Q3:</b> ${q3.toFixed(2)}</div>
+                        <div><b>Max:</b> ${max.toFixed(2)}</div>
+                    `)
+                d3.selectAll(`.box`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 2.5);
+                d3.selectAll(`.medianLine`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 3.5);
+                d3.selectAll(`.whisker`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 2.5);
+            }
+            function boxMouseOut(event, v, d) {
+                const {min, q1, median, q3, max} = boxPlotData(v.data);
+                tooltip.style('visibility', 'hidden');
+                d3.selectAll(`.box`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 1.5);
+                d3.selectAll(`.medianLine`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 2.5);
+                d3.selectAll(`.whisker`)
+                    .filter(w => w.variety === v.variety && w.feature === d.feature)
+                    .attr('stroke-width', 1.5);
+            }
+            boxData.forEach(d => {
+                const featureGroup = subfig4.append('g')
+                    .attr('transform', `translate(${xScale4(d.feature)}, 0)`);
+                d.values.forEach(v => {
+                    const {min, q1, median, q3, max} = boxPlotData(v.data);
+                    const center = xxScale4(v.variety) + xxScale4.bandwidth() / 2;
+                    // 绘制箱体
+                    featureGroup.append('rect')
+                        .attr('class', `box`)
+                        .datum({variety: v.variety, feature: d.feature})
+                        .attr('x', xxScale4(v.variety))
+                        .attr('y', yScale4(q3))
+                        .attr('width', xxScale4.bandwidth())
+                        .attr('height', yScale4(q1) - yScale4(q3))
+                        .attr('fill', '#FFFFFF')
+                        .attr('fill-opacity', 0.8)
+                        .attr('stroke', colorScale(v.variety))
+                        .attr('stroke-width', 1.5)
+                        .on('mouseover', (event) => boxMouseOver(event, v, d))
+                        .on('mouseout', (event) => boxMouseOut(event, v, d))
+                        .on('mousemove', (event) => {
+                            tooltip
+                                .style('top', (event.pageY - 150) + 'px')
+                                .style('left', (event.pageX + 15) + 'px');
+                        });
+                    // 绘制中位线
+                    featureGroup.append('line')
+                        .attr('class', `medianLine`)
+                        .datum({variety: v.variety, feature: d.feature})
+                        .attr('x1', center - xxScale4.bandwidth() / 2)
+                        .attr('x2', center + xxScale4.bandwidth() / 2)
+                        .attr('y1', yScale4(median))
+                        .attr('y2', yScale4(median))
+                        .attr('stroke', colorScale(v.variety))
+                        .attr('stroke-width', 2.5)
+                        .on('mouseover', (event) => boxMouseOver(event, v, d))
+                        .on('mouseout', (event) => boxMouseOut(event, v, d))
+                        .on('mousemove', (event) => {
+                            tooltip
+                                .style('top', (event.pageY - 150) + 'px')
+                                .style('left', (event.pageX + 15) + 'px');
+                        });
+                    // 绘制须
+                    featureGroup.append('line')
+                        .attr('class', `whisker`)
+                        .datum({variety: v.variety, feature: d.feature})
+                        .attr('x1', center)
+                        .attr('x2', center)
+                        .attr('y1', yScale4(max))
+                        .attr('y2', yScale4(q3))
+                        .attr('stroke', colorScale(v.variety))
+                        .attr('stroke-width', 1.5)
+                        .on('mouseover', (event) => boxMouseOver(event, v, d))
+                        .on('mouseout', (event) => boxMouseOut(event, v, d))
+                        .on('mousemove', (event) => {
+                            tooltip
+                                .style('top', (event.pageY - 150) + 'px')
+                                .style('left', (event.pageX + 15) + 'px');
+                        });
+                    featureGroup.append('line')
+                        .attr('class', `whisker`)
+                        .datum({variety: v.variety, feature: d.feature})
+                        .attr('x1', center)
+                        .attr('x2', center)
+                        .attr('y1', yScale4(min))
+                        .attr('y2', yScale4(q1))
+                        .attr('stroke', colorScale(v.variety))
+                        .attr('stroke-width', 1.5)
+                        .on('mouseover', (event) => boxMouseOver(event, v, d))
+                        .on('mouseout', (event) => boxMouseOut(event, v, d))
+                        .on('mousemove', function(event) {
+                            tooltip
+                                .style('top', (event.pageY - 150) + 'px')
+                                .style('left', (event.pageX + 15) + 'px');
+                        })
+                });
+            });
+            // 绘制图例
+            const legend4 = subfig4.append('g')
+                .attr('transform', `translate(${sub_width - 1.5 * margin.left}, ${margin.top / 4})`);
+            function legendMouseOver(event, category) {
+                subfig4.selectAll('.box')
+                    .attr('stroke-width', d => d.variety === category ? 2.5 : 0.5);
+                subfig4.selectAll('.medianLine')
+                    .attr('stroke-width', d => d.variety === category ? 3.5 : 1.5);
+                subfig4.selectAll('.whisker')
+                    .attr('stroke-width', d => d.variety === category ? 2.5 : 0.5);
+            }
+            function legendMouseOut(event, category) {
+                subfig4.selectAll('.box')
+                    .attr('stroke-width', 1.5);
+                subfig4.selectAll('.medianLine')
+                    .attr('stroke-width', 2.5);
+                subfig4.selectAll('.whisker')
+                    .attr('stroke-width', 1.5);
+            }
+            categories.forEach((category, index) => {
+                const item = legend4.append('g')
+                    .attr('transform', `translate(0, ${index * 30})`)
+                    .on('mouseover', (event) => {
+                        subfig4.selectAll('.box')
+                            .attr('stroke-width', d => d.variety === category ? 2.5 : 0.5);
+                        subfig4.selectAll('.medianLine')
+                            .attr('stroke-width', d => d.variety === category ? 3.5 : 1.5);
+                        subfig4.selectAll('.whisker')
+                            .attr('stroke-width', d => d.variety === category ? 2.5 : 0.5);
+                    })
+                    .on('mouseout', (event) => {
+                        subfig4.selectAll('.box')
+                            .attr('stroke-width', 1.5);
+                        subfig4.selectAll('.medianLine')
+                            .attr('stroke-width', 2.5);
+                        subfig4.selectAll('.whisker')
+                            .attr('stroke-width', 1.5);
+                    });
+                // 小型箱线图
+                const boxWidth = 20;
+                const boxHeight = 10;
+                item.append('rect')
+                    .attr('x', -boxWidth / 2)
+                    .attr('y', -boxHeight / 2)
+                    .attr('width', boxWidth)
+                    .attr('height', boxHeight)
+                    .attr('fill', '#FFFFFF')
+                    .attr('fill-opacity', 0.8)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 1.5);
+                item.append('line')
+                    .attr('x1', -boxWidth / 2)
+                    .attr('x2', boxWidth / 2)
+                    .attr('y1', 0)
+                    .attr('y2', 0)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 3);
+                item.append('line')
+                    .attr('x1', 0)
+                    .attr('x2', 0)
+                    .attr('y1', -boxHeight)
+                    .attr('y2', -boxHeight / 2)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 1.5);
+                item.append('line')
+                    .attr('x1', 0)
+                    .attr('x2', 0)
+                    .attr('y1', boxHeight)
+                    .attr('y2', boxHeight / 2)
+                    .attr('stroke', colorScale(category))
+                    .attr('stroke-width', 1.5);
+                item.append('text')
+                    .attr('x', 20)
+                    .attr('y', 5)
+                    .text(category);
+            });
+
+        // 子图5：三维散点图
+            subfig5 = svg.append('g')
+                .attr('transform', `translate(${sub_width + 2 * margin.left}, ${3 * margin.top + sub_height})`);
+            // 绘制标题
+            subfig5.append('text')
+                .attr('x', sub_width / 2)
+                .attr('y', -margin.top / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('三维散点图')
+                .style('font-size', '32px')
+                .style('font-weight', 600);
+            const container = d3.select("#chart")
+                .append('div')
+                .style('position', 'absolute')
+                .style('left', `${sub_width + 2 * margin.left}px`)
+                .style('top', `${sub_height + 3 * margin.top}px`)
+                .style('width', sub_width)
+                .style('height', sub_height)
+                .style('z-index', 10);  // 确保Three.js画布在SVG上方
+            // 设置尺度
+            const xScale5 = d3.scaleLinear()
+                .domain([d3.min(dataset, d => d["petal.length"]) - 0.5, d3.max(dataset, d => d["petal.length"]) + 0.5])
+                .range([0, 20]);
+            const yScale5 = d3.scaleLinear()
+                .domain([d3.min(dataset, d => d["petal.width"]) - 0.5, d3.max(dataset, d => d["petal.width"]) + 0.5])
+                .range([0, 20]);
+            const zScale5 = d3.scaleLinear()
+                .domain([d3.min(dataset, d => d["sepal.length"]) - 0.5, d3.max(dataset, d => d["sepal.length"]) + 0.5])
+                .range([0, 20]);
+            const colorScale5 = d3.scaleSequential(d3.interpolateViridis)
+                .domain(d3.extent(dataset, d => d["sepal.width"]));
+            // 初始化Three.js场景
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, sub_width / sub_height, 0.1, 1000);
+            camera.position.set(15, 20, 30);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(sub_width, sub_height);
+            container.node().appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            // 创建数据点
+            dataset.forEach(d => {
+                let geometry;
+                if (d["variety"] === 'Setosa') {
+                    geometry = new THREE.SphereGeometry(0.6, 8, 8);
+                } else if (d["variety"] === 'Versicolor') {
+                    geometry = new THREE.ConeGeometry(0.6, 1.2, 8);
+                } else {
+                    geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+                }
+                
+                const color = new THREE.Color(colorScale5(d["sepal.width"]));
+                const material = new THREE.MeshBasicMaterial({ color: color });
+                const outlineMaterial = new THREE.MeshBasicMaterial({
+                    color: colorScale(d['variety']),
+                    side: THREE.BackSide
+                });
+                const outline = new THREE.Mesh(geometry, outlineMaterial);
+                outline.scale.multiplyScalar(1.1); // 放大一点
+                
+                const point = new THREE.Mesh(geometry, material);
+
+                point.position.set(xScale5(d["petal.length"]), yScale5(d["petal.width"]), zScale5(d["sepal.length"]));
+                outline.position.copy(point.position);
+                scene.add(point);
+                scene.add(outline);
+            });
+            // 添加坐标轴
+            function createAxis(start, end, color) {
+                const material = new THREE.LineBasicMaterial({ color });
+                const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+                return new THREE.Line(geometry, material);
+            }
+            scene.add(createAxis(
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(25, 0, 0),
+                '#FF0000'
+            ));
+            scene.add(createAxis(
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 25, 0),
+                '#00FF00'
+            ));
+            scene.add(createAxis(
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, 25),
+                '#0000FF'
+            ));
+            // 添加坐标轴标签
+            function createTextLabel(text, position, fontSize = 16) {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                canvas.width = 128;
+                canvas.height = 64;
+                context.font = `bold ${fontSize}px Arial`;
+                context.fillStyle = '#ffffff';
+                context.strokeStyle = '#000000';
+                context.lineWidth = 3;
+                context.strokeText(text, 20, 60);
+                context.fillText(text, 20, 60);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.minFilter = THREE.LinearFilter; // 防止模糊
+                const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+                const sprite = new THREE.Sprite(material);
+
+                sprite.scale.set(15, 7, 1);
+                sprite.position.copy(position);
+                return sprite;
+            }
+            scene.add(createTextLabel('Petal Length', new THREE.Vector3(25, 0, 0), 16));
+            scene.add(createTextLabel('Petal Width', new THREE.Vector3(0, 25, 0), 16));
+            scene.add(createTextLabel('Sepal Length', new THREE.Vector3(0, 0, 25), 16));
+            // 添加坐标轴刻度
+            function createTickLabel(axis, scale, length) {
+                const domain = scale.domain();
+                const ticks = d3.scaleLinear().domain(domain).ticks(3);
+
+                ticks.forEach(tick => {
+                    const pos = scale(tick);
+                    let start, end, labelPos;
+
+                    if (axis === 'x') {
+                        start = new THREE.Vector3(pos, 0, 0);
+                        end   = new THREE.Vector3(pos, 1, 0);
+                        labelPos = new THREE.Vector3(pos, 0, 0);
+                    } else if (axis === 'y') {
+                        start = new THREE.Vector3(0, pos, 0);
+                        end   = new THREE.Vector3(-1, pos, 0);
+                        labelPos = new THREE.Vector3(0, pos, 0);
+                    } else {
+                        start = new THREE.Vector3(0, 0, pos);
+                        end   = new THREE.Vector3(0, 1, pos);
+                        labelPos = new THREE.Vector3(0, 0, pos);
+                    }
+                    
+                    const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+                    const material = new THREE.LineBasicMaterial({ color: '#000000' });
+                    const tickLine = new THREE.Line(geometry, material);
+                    scene.add(tickLine);
+                    scene.add(createTextLabel(tick.toFixed(1), labelPos, 14));
+                });
+            }
+            createTickLabel('x', xScale5, 30);
+            createTickLabel('y', yScale5, 30);
+            createTickLabel('z', zScale5, 30);
+            // 添加网格线
+            // 动画循环
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();       
+            // 添加图例
+            const legend5 = subfig5.append('g')
+                .attr('transform', `translate(${margin.left + sub_width}, ${margin.top / 4})`);
+            categories.forEach((category, index) => {
+                const item = legend5.append('g')
+                    .attr('transform', `translate(0, ${index * 5})`);
+                if (category === 'Setosa') {
+                    item.append('circle')
+                        .attr('data-variety', 'Setosa')
+                        .attr('transform', 'translate(0, 0)')
+                        .attr('cx', 0)
+                        .attr('cy', 0)
+                        .attr('r', 10)
+                        .attr('fill', 'none')
+                        .attr('stroke', colorScale('Setosa'))
+                        .attr('stroke-width', 1);
+                } else if (category === 'Versicolor') {
+                    item.append('polygon')
+                        .attr('data-variety', 'Versicolor')
+                        .attr('transform', 'translate(0, 30)')
+                        .attr('points', '-10,10 0,-10 10,10')
+                        .attr('fill', 'none')
+                        .attr('stroke', colorScale('Versicolor'))
+                        .attr('stroke-width', 1);
+                } else {
+                    item.append('rect')
+                        .attr('data-variety', 'Virginica')
+                        .attr('transform', 'translate(0, 60)')
+                        .attr('x', -10)
+                        .attr('y', -10)
+                        .attr('width', 20)
+                        .attr('height', 20)
+                        .attr('fill', 'none')
+                        .attr('stroke', colorScale('Virginica'))
+                        .attr('stroke-width', 1);
+                }
+                item.append('text')
+                    .attr('data-variety', category)
+                    .attr('x', 15)
+                    .attr('y', index * 30 + 2)
+                    .text(category)
+                    .attr('alignment-baseline', 'middle');
+            })
+            // 热力值图例
+            defs = legend5.append('defs');
+            gradient = defs.append('linearGradient')
+                .attr('id', 'legendGradient')
+                .attr('x1', '0%')
+                .attr('y1', '100%')
+                .attr('x2', '0%')
+                .attr('y2', '0%');
+            gradient.selectAll('stop')
+                .data(d3.range(0, 1.01, 0.01))
+                .join('stop')
+                .attr('offset', d => d)
+                .attr('stop-color', d => d3.interpolateViridis(d));
+            legend5.append('rect')
+                .attr('x', 15)
+                .attr('y', 90)
+                .attr('width', 20)
+                .attr('height', 100)
+                .attr('fill', 'url(#legendGradient)');
+            const legendScale = d3.scaleLinear()
+                .domain(colorScale5.domain())
+                .range([190, 90]);
+            const legendAxis = d3.axisRight(legendScale).ticks(5);
+            legend5.append('g')
+                .attr('transform', 'translate(35, 0)')
+                .call(legendAxis)
+                .attr('font-size', '12px');
+            legend5.append('text')
+                .attr('x', -10)
+                .attr('y', 210)
+                .text('Sepal Width')
+                .attr('text-anchor', 'start')
+                .attr('alignment-baseline', 'middle');
+
+        // 签名部分
+            const signature = svg.append('g')
+                .attr('transform', `translate(${2 * sub_width + 3 * margin.left}, ${3 * margin.top + sub_height})`);
+            signature.append('text')
+                .attr('x', sub_width / 2 + margin.left)
+                .attr('y', sub_height / 2)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .text('SA25011022 郭旭')
+                .style('fill', 'rgba(101, 136, 115)')
+                .style('font-size', '32px')
+                .style('font-size', 30);
+        };
+
+        drawChart()
+    </script>
+</body>
